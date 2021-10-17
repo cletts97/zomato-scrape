@@ -1,23 +1,33 @@
 import requests
 from bs4 import BeautifulSoup
+import re
+import pandas
 
-#Used headers/agent because the request was timed out and asking for an agent. 
-#Using following code we can fake the agent.
+
+
+# Provide user agent to trick server in to thinking it's being access by a client
+
 headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36'}
-response = requests.get("https://www.zomato.com/bangalore/top-restaurants", headers=headers)
+response = requests.get("https://www.zomato.com/bangalore/best-delivery-restaurants", headers=headers)
 
 content = response.content
-soup = BeautifulSoup(content, "html.parser")
+soup = BeautifulSoup(content, "html.parser") # Stores html content in a structured tree form
 
-top_rest = soup.find_all("div",attrs={"class": "sc-bke1zw-1 ixpGXU"})
-top_rest.extend(soup.find_all("div",attrs={"class": "sc-bke1zw-1 ijNBpr"}))
-top_rest.extend(soup.find_all("div",attrs={"class": "sc-bke1zw-1 dFBCmH"}))
-top_rest.extend(soup.find_all("div",attrs={"class": "sc-bke1zw-1 djiZfy"}))
+top_rest = soup.find_all("div",attrs={"class": "jumbo-tracker"}) # Grabs all the div's with class "jumbo-tracker"
+
+regex_name = re.compile('sc-1hp8d8a-0.*')
+regex_rating = re.compile('sc-1q7bklc-1.*')
+#regex_cuisine = re.compile('sc-1hez2tp-0.*') # Unfortunately this results in 3 different dynamic css classes that are used so brings back random information.
+# Will come back to this later once i've learned more about scraping webpages that use dynamic css
+
 
 list_rest = []
-print(top_rest)
 for rest in top_rest:
     dataframe = {}
-    dataframe["rest_name"] = rest.find("div", attrs={"class": "sc-fzmwXB fWLrQG"})
-    print(dataframe["rest_name"])
+    dataframe["rest_name"] = rest.find("h4", attrs={"class": regex_name}).text
+    dataframe["rest_rating"] = rest.find("div", attrs={"class": regex_rating}).text.replace('star-fill', '')
+    #dataframe["rest_cuisine"] = rest.find("p", attrs={"class": regex_cuisine}).text # 3 different classes use this regex and there is no way to uniquely identify the desired field.
     list_rest.append(dataframe)
+
+df = pandas.DataFrame(list_rest)
+df.to_csv("zomato_results.csv", index=False)
